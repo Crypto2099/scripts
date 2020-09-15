@@ -20,6 +20,8 @@ Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lo
 EOF
   exit 1;; esac
 
+validateJson="${5:-1}"
+
 #Throw an error if the voting.json file does not exist
 if [ ! -f "$4.json" ]; then
   echo "The specified VoteFileName.json file does not exist. Please try again."
@@ -28,16 +30,55 @@ else
   metafile="${4}.json"
 fi
 
+function readMetaParam() {
+  required="${3:-0}"
+  param=$(jq -r ".\"1\" .$1" $2 2> /dev/null)
+  if [[ $? -ne 0 ]]; then echo "ERROR - ${2} is not a valid JSON file" >&2; exit 1;
+  elif [[ "${param}" == null && required -eq 1 ]]; then echo "ERROR - Parameter \"$1\" in $2 does not exist" >&2; exit 1;
+  elif [[ "${param}" == "" && !required -eq 1 ]]; then echo "ERROR - Parameter \"$1\" in $2 is empty" >&2; exit 1;
+  fi
+  echo "${param}"
+}
+
+# if [[ $validateJson == 1 ]]; then
+  objectType=$(readMetaParam "ObjectType" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
+  objectVersion=$(readMetaParam "ObjectVersion" "${metafile}"); if [[ ! $? == 0 ]]; then exit 1; fi
+
+  if [[ $objectType == 'VoteBallot' ]]; then
+    # Check VoteBallot required fields
+    networkId=$(readMetaParam "NetworkId" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
+    proposalId=$(readMetaParam "ProposalId" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
+    voterId=$(readMetaParam "VoterId" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
+    yesnovote=$(readMetaParam "Vote" "${metafile}"); if [[ ! $? == 0 ]]; then exit 1; fi
+    choicevote=$(readMetaParam "Choices" "${metafile}"); if [[ ! $? == 0 ]]; then exit 1; fi
+    if [[ $yesnovote == null && $choicevote == null ]]; then 
+      echo "ERROR - No voting preferences found in ballot." >&2; 
+      exit 1; 
+    fi
+  fi
+# fi
+
 #Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 if [ ! -f "$2.addr" ]; then echo "$2" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
 
+# If only doing a simple metadata submission, set the Lovelace to send to "ALL" to avoid an empty utxo and increased fees
+sendFromAddr=$(cat ${fromAddr}.addr)
+sendToAddr=$(cat ${toAddr}.addr)
+
+check_address "${sendFromAddr}"
+check_address "${sendToAddr}"
+
+if [[ "${sendFromAddr}" == "${sendToAddr}" ]]; then
+	lovelacesToSend="ALL"
+fi
+
 #Choose between sending ALL funds or a given amount of lovelaces out
 if [[ ${lovelacesToSend^^} == "ALL" ]]; then
-						#Sending ALL lovelaces, so only 1 receiver addresses
-						rxcnt="1"
-					else
-						#Sending a free amount, so 2 receiver addresses
-						rxcnt="2"  #transmit to two addresses. 1. destination address, 2. change back to the source address
+  #Sending ALL lovelaces, so only 1 receiver addresses
+  rxcnt="1"
+else
+  #Sending a free amount, so 2 receiver addresses
+  rxcnt="2"  #transmit to two addresses. 1. destination address, 2. change back to the source address
 fi
 
 echo
@@ -52,11 +93,11 @@ currentEPOCH=$(get_currentEpoch)
 echo -e "\e[0mCurrent Slot-Height:\e[32m ${currentTip} \e[0m(setting TTL to ${ttl})"
 echo
 
-sendFromAddr=$(cat ${fromAddr}.addr)
-sendToAddr=$(cat ${toAddr}.addr)
+# sendFromAddr=$(cat ${fromAddr}.addr)
+# sendToAddr=$(cat ${toAddr}.addr)
 
-check_address "${sendFromAddr}"
-check_address "${sendToAddr}"
+# check_address "${sendFromAddr}"
+# check_address "${sendToAddr}"
 
 echo -e "\e[0mSource Address ${fromAddr}.addr:\e[32m ${sendFromAddr} \e[90m"
 echo -e "\e[0mDestination Address ${toAddr}.addr:\e[32m ${sendToAddr} \e[90m"
@@ -178,6 +219,3 @@ fi
 
 
 echo -e "\e[0m\n"
-
-
-
