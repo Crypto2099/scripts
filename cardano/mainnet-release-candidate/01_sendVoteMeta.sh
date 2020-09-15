@@ -20,8 +20,6 @@ Usage:  $(basename $0) <From AddressName> <To AddressName or HASH> <Amount in lo
 EOF
   exit 1;; esac
 
-validateJson="${5:-1}"
-
 #Throw an error if the voting.json file does not exist
 if [ ! -f "$4.json" ]; then
   echo "The specified VoteFileName.json file does not exist. Please try again."
@@ -40,23 +38,21 @@ function readMetaParam() {
   echo "${param}"
 }
 
-# if [[ $validateJson == 1 ]]; then
-  objectType=$(readMetaParam "ObjectType" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
-  objectVersion=$(readMetaParam "ObjectVersion" "${metafile}"); if [[ ! $? == 0 ]]; then exit 1; fi
+objectType=$(readMetaParam "ObjectType" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
+objectVersion=$(readMetaParam "ObjectVersion" "${metafile}"); if [[ ! $? == 0 ]]; then exit 1; fi
 
-  if [[ $objectType == 'VoteBallot' ]]; then
-    # Check VoteBallot required fields
-    networkId=$(readMetaParam "NetworkId" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
-    proposalId=$(readMetaParam "ProposalId" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
-    voterId=$(readMetaParam "VoterId" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
-    yesnovote=$(readMetaParam "Vote" "${metafile}"); if [[ ! $? == 0 ]]; then exit 1; fi
-    choicevote=$(readMetaParam "Choices" "${metafile}"); if [[ ! $? == 0 ]]; then exit 1; fi
-    if [[ $yesnovote == null && $choicevote == null ]]; then 
-      echo "ERROR - No voting preferences found in ballot." >&2; 
-      exit 1; 
-    fi
+if [[ $objectType == 'VoteBallot' ]]; then
+  # Check VoteBallot required fields
+  networkId=$(readMetaParam "NetworkId" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
+  proposalId=$(readMetaParam "ProposalId" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
+  voterId=$(readMetaParam "VoterId" "${metafile}" 1); if [[ ! $? == 0 ]]; then exit 1; fi
+  yesnovote=$(readMetaParam "Vote" "${metafile}"); if [[ ! $? == 0 ]]; then exit 1; fi
+  choicevote=$(readMetaParam "Choices" "${metafile}"); if [[ ! $? == 0 ]]; then exit 1; fi
+  if [[ $yesnovote == null && $choicevote == null ]]; then
+    echo "ERROR - No voting preferences found in ballot." >&2;
+    exit 1;
   fi
-# fi
+fi
 
 #Check if toAddr file doesn not exists, make a dummy one in the temp directory and fill in the given parameter as the hash address
 if [ ! -f "$2.addr" ]; then echo "$2" > ${tempDir}/tempTo.addr; toAddr="${tempDir}/tempTo"; fi
